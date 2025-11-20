@@ -1,0 +1,45 @@
+name: pokemon_card_scanner
+description: Premium Pokémon Card Scanner App für den deutschen Markt
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Kamera & Bildverarbeitung
+  camera: ^0.10.5+5
+  google_mlkit_text_recognition: ^0.11.0
+  
+  # Netzwerk
+  dio: ^5.4.0
+  
+  # UI & Design
+  glassmorphism: ^3.0.0
+  flutter_animate: ^4.5.0
+  
+  # State Management & Utilities
+  provider: ^6.1.1
+  shared_preferences: ^2.2.2
+  
+  # Supabase Backend
+  supabase_flutter: ^2.5.1
+  uuid: ^4.3.3
+  
+  # Icons & Visuals
+  cupertino_icons: ^1.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/images/
+    - assets/icons/

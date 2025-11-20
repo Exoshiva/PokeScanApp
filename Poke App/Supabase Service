@@ -1,0 +1,371 @@
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'card_scanner_service.dart';
+
+/// Model für User-spezifische Karten-Daten
+class UserCard {
+  final int id;
+  final String userId;
+  final String apiCardId;
+  final String name;
+  final String? setName;
+  final String? cardNumber;
+  final String? imageUrl;
+  final String? rarity;
+  
+  // User-spezifische Felder
+  final String condition;
+  final double? purchasePriceEur;
+  final double? currentMarketPriceEur;
+  final int quantity;
+  final bool isFoil;
+  final DateTime createdAt;
+  
+  UserCard({
+    required this.id,
+    required this.userId,
+    required this.apiCardId,
+    required this.name,
+    this.setName,
+    this.cardNumber,
+    this.imageUrl,
+    this.rarity,
+    this.condition = 'Near Mint',
+    this.purchasePriceEur,
+    this.currentMarketPriceEur,
+    this.quantity = 1,
+    this.isFoil = false,
+    required this.createdAt,
+  });
+  
+  factory UserCard.fromJson(Map<String, dynamic> json) {
+    return UserCard(
+      id: json['id'] as int,
+      userId: json['user_id'] as String,
+      apiCardId: json['api_card_id'] as String,
+      name: json['name'] as String,
+      setName: json['set_name'] as String?,
+      cardNumber: json['card_number'] as String?,
+      imageUrl: json['image_url'] as String?,
+      rarity: json['rarity'] as String?,
+      condition: json['condition'] as String? ?? 'Near Mint',
+      purchasePriceEur: json['purchase_price_eur'] != null 
+          ? (json['purchase_price_eur'] as num).toDouble() 
+          : null,
+      currentMarketPriceEur: json['current_market_price_eur'] != null
+          ? (json['current_market_price_eur'] as num).toDouble()
+          : null,
+      quantity: json['quantity'] as int? ?? 1,
+      isFoil: json['is_foil'] as bool? ?? false,
+      createdAt: DateTime.parse(json['created_at'] as String),
+    );
+  }
+  
+  Map<String, dynamic> toJson() {
+    return {
+      'user_id': userId,
+      'api_card_id': apiCardId,
+      'name': name,
+      'set_name': setName,
+      'card_number': cardNumber,
+      'image_url': imageUrl,
+      'rarity': rarity,
+      'condition': condition,
+      'purchase_price_eur': purchasePriceEur,
+      'current_market_price_eur': currentMarketPriceEur,
+      'quantity': quantity,
+      'is_foil': isFoil,
+    };
+  }
+}
+
+/// Service für Supabase Datenbank-Operationen
+class SupabaseService {
+  static final SupabaseService _instance = SupabaseService._internal();
+  factory SupabaseService() => _instance;
+  SupabaseService._internal();
+  
+  SupabaseClient get _client => Supabase.instance.client;
+  
+  /// Initialisiert Supabase (muss in main.dart aufgerufen werden)
+  static Future<void> initialize({
+    required String supabaseUrl,
+    required String supabaseAnonKey,
+  }) async {
+    await Supabase.initialize(
+      url: supabaseUrl,
+      anonKey: supabaseAnonKey,
+    );
+  }
+  
+  /// Gibt den aktuell eingeloggten User zurück
+  User? get currentUser => _client.auth.currentUser;
+  
+  /// Prüft ob User eingeloggt ist
+  bool get isLoggedIn => currentUser != null;
+  
+  // ============================================================================
+  // AUTH METHODS
+  // ============================================================================
+  
+  /// Registriert neuen User
+  Future<AuthResponse> signUp({
+    required String email,
+    required String password,
+  }) async {
+    return await _client.auth.signUp(
+      email: email,
+      password: password,
+    );
+  }
+  
+  /// Loggt User ein
+  Future<AuthResponse> signIn({
+    required String email,
+    required String password,
+  }) async {
+    return await _client.auth.signInWithPassword(
+      email: email,
+      password: password,
+    );
+  }
+  
+  /// Loggt User aus
+  Future<void> signOut() async {
+    await _client.auth.signOut();
+  }
+  
+  // ============================================================================
+  // CARD COLLECTION METHODS
+  // ============================================================================
+  
+  /// Fügt eine gescannte Karte zur Sammlung hinzu
+  Future<UserCard?> addCardToCollection({
+    required PokemonCard card,
+    String condition = 'Near Mint',
+    double? purchasePrice,
+    bool isFoil = false,
+  }) async {
+    try {
+      if (!isLoggedIn) {
+        throw Exception('User muss eingeloggt sein');
+      }
+      
+      // Prüfe ob Karte bereits existiert
+      final existing = await _client
+          .from('user_cards')
+          .select()
+          .eq('user_id', currentUser!.id)
+          .eq('api_card_id', card.id)
+          .maybeSingle();
+      
+      if (existing != null) {
+        // Karte existiert bereits -> Erhöhe Anzahl
+        final updated = await _client
+            .from('user_cards')
+            .update({
+              'quantity': (existing['quantity'] as int) + 1,
+            })
+            .eq('id', existing['id'])
+            .select()
+            .single();
+        
+        print('✅ Karte bereits vorhanden, Anzahl erhöht');
+        return UserCard.fromJson(updated);
+      }
+      
+      // Neue Karte hinzufügen
+      final newCard = {
+        'user_id': currentUser!.id,
+        'api_card_id': card.id,
+        'name': card.name,
+        'set_name': card.setName,
+        'card_number': card.number,
+        'image_url': card.imageUrl,
+        'rarity': card.rarity,
+        'condition': condition,
+        'purchase_price_eur': purchasePrice,
+        'is_foil': isFoil,
+        'quantity': 1,
+      };
+      
+      final response = await _client
+          .from('user_cards')
+          .insert(newCard)
+          .select()
+          .single();
+      
+      print('✅ Karte zur Sammlung hinzugefügt: ${card.name}');
+      return UserCard.fromJson(response);
+      
+    } catch (e) {
+      print('❌ Fehler beim Hinzufügen: $e');
+      rethrow;
+    }
+  }
+  
+  /// Holt alle Karten des Users
+  Future<List<UserCard>> getUserCards({
+    String? orderBy = 'created_at',
+    bool ascending = false,
+  }) async {
+    try {
+      if (!isLoggedIn) return [];
+      
+      final response = await _client
+          .from('user_cards')
+          .select()
+          .eq('user_id', currentUser!.id)
+          .order(orderBy ?? 'created_at', ascending: ascending);
+      
+      return (response as List)
+          .map((json) => UserCard.fromJson(json))
+          .toList();
+      
+    } catch (e) {
+      print('❌ Fehler beim Laden der Sammlung: $e');
+      return [];
+    }
+  }
+  
+  /// Sucht Karten nach Name
+  Future<List<UserCard>> searchCards(String query) async {
+    try {
+      if (!isLoggedIn) return [];
+      
+      final response = await _client
+          .from('user_cards')
+          .select()
+          .eq('user_id', currentUser!.id)
+          .ilike('name', '%$query%')
+          .order('name');
+      
+      return (response as List)
+          .map((json) => UserCard.fromJson(json))
+          .toList();
+      
+    } catch (e) {
+      print('❌ Suchfehler: $e');
+      return [];
+    }
+  }
+  
+  /// Aktualisiert eine Karte
+  Future<UserCard?> updateCard({
+    required int cardId,
+    String? condition,
+    double? purchasePrice,
+    double? currentMarketPrice,
+    int? quantity,
+    bool? isFoil,
+  }) async {
+    try {
+      final updates = <String, dynamic>{};
+      
+      if (condition != null) updates['condition'] = condition;
+      if (purchasePrice != null) updates['purchase_price_eur'] = purchasePrice;
+      if (currentMarketPrice != null) updates['current_market_price_eur'] = currentMarketPrice;
+      if (quantity != null) updates['quantity'] = quantity;
+      if (isFoil != null) updates['is_foil'] = isFoil;
+      
+      if (updates.isEmpty) return null;
+      
+      final response = await _client
+          .from('user_cards')
+          .update(updates)
+          .eq('id', cardId)
+          .select()
+          .single();
+      
+      return UserCard.fromJson(response);
+      
+    } catch (e) {
+      print('❌ Update-Fehler: $e');
+      return null;
+    }
+  }
+  
+  /// Löscht eine Karte
+  Future<bool> deleteCard(int cardId) async {
+    try {
+      await _client
+          .from('user_cards')
+          .delete()
+          .eq('id', cardId);
+      
+      print('✅ Karte gelöscht');
+      return true;
+      
+    } catch (e) {
+      print('❌ Lösch-Fehler: $e');
+      return false;
+    }
+  }
+  
+  // ============================================================================
+  // STATISTIKEN
+  // ============================================================================
+  
+  /// Gibt Sammlungs-Statistiken zurück
+  Future<Map<String, dynamic>> getCollectionStats() async {
+    try {
+      if (!isLoggedIn) {
+        return {
+          'total_cards': 0,
+          'total_value': 0.0,
+          'unique_sets': 0,
+        };
+      }
+      
+      final cards = await getUserCards();
+      
+      final totalCards = cards.fold<int>(0, (sum, card) => sum + card.quantity);
+      
+      final totalValue = cards.fold<double>(
+        0.0,
+        (sum, card) => sum + ((card.currentMarketPriceEur ?? 0) * card.quantity),
+      );
+      
+      final uniqueSets = cards
+          .map((card) => card.setName)
+          .where((name) => name != null)
+          .toSet()
+          .length;
+      
+      return {
+        'total_cards': totalCards,
+        'total_value': totalValue,
+        'unique_sets': uniqueSets,
+        'unique_cards': cards.length,
+      };
+      
+    } catch (e) {
+      print('❌ Statistik-Fehler: $e');
+      return {
+        'total_cards': 0,
+        'total_value': 0.0,
+        'unique_sets': 0,
+      };
+    }
+  }
+  
+  /// Gibt die wertvollsten Karten zurück
+  Future<List<UserCard>> getTopValueCards({int limit = 10}) async {
+    try {
+      if (!isLoggedIn) return [];
+      
+      final cards = await getUserCards();
+      
+      cards.sort((a, b) {
+        final aValue = (a.currentMarketPriceEur ?? 0) * a.quantity;
+        final bValue = (b.currentMarketPriceEur ?? 0) * b.quantity;
+        return bValue.compareTo(aValue);
+      });
+      
+      return cards.take(limit).toList();
+      
+    } catch (e) {
+      print('❌ Fehler: $e');
+      return [];
+    }
+  }
+}
