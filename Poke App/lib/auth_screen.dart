@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'supabase_service.dart';
+import '../../supabase_service.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});

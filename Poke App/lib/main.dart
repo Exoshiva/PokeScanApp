@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'scanner_screen.dart';
-import 'supabase_service.dart';
+import '../../scanner_screen.dart';
+import '../../supabase_service.dart';
 import 'auth_screen.dart';
 import 'collection_screen.dart';
 
 // ⚠️ WICHTIG: Ersetze diese Werte mit deinen echten Supabase Credentials
-const String SUPABASE_URL = 'https://DEIN-PROJECT.supabase.co';
-const String SUPABASE_ANON_KEY = 'DEIN-ANON-KEY';
+const String SUPABASE_URL = 'https://crbniopzlisxluskxmaq.supabase.co';
+const String SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNyYm5pb3B6bGlzeGx1c2t4bWFxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4MDQzMjQsImV4cCI6MjA3ODM4MDMyNH0.GkDIphCQgTbfnl91XPz2um3lXjOXc1xbbfYTfqfntoc';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
